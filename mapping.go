@@ -12,10 +12,21 @@ import (
 type randomMapping struct {
 	prng    uint64 // PRNG state
 	lastIdx uint64 // the last index the symbol was mapped to
+	sourceType float64
 }
 
 // nextIndex returns the next index in the sequence.
 func (s *randomMapping) nextIndex() uint64 {
+	if s.lastIdx == 0 {
+		bucket := s.prng >> 56
+		if bucket > 200 {
+			s.sourceType = 2.0
+		} else if bucket > 50 {
+			s.sourceType = 1.0
+		} else {
+			s.sourceType = 0.5
+		}
+	}
 	// Update the PRNG. TODO: prove that the following update rule gives us
 	// high quality randomness, assuming the multiplier is coprime to 2^64.
 	r := s.prng * 0xda942042e4dd58b5
@@ -28,6 +39,6 @@ func (s *randomMapping) nextIndex() uint64 {
 	// our u actually comes from sampling a random uint64 r, and then dividing
 	// it by maxUint64, i.e., 1<<64. So we can replace (1-u)^(-1/2) with
 	//   1<<32 / sqrt(r).
-	s.lastIdx += uint64(math.Ceil((float64(s.lastIdx) + 1.5) * ((1<<32)/math.Sqrt(float64(r)+1) - 1)))
+	s.lastIdx += uint64(s.sourceType * math.Ceil((float64(s.lastIdx) + 1.5) * ((1<<32)/math.Sqrt(float64(r)+1) - 1)))
 	return s.lastIdx
 }
